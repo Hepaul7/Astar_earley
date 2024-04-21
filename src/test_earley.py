@@ -42,6 +42,28 @@ class TestNaiveEarley(TestCase):
         assert (set(p.grammar.fmt_point(s.point) for s in p.chart[3]) ==
                 {'<start> → AA•', 'A → c•', 'A → A•a'})
 
+    def test_reject(self):
+        grammar = toy_grammar()
+        parser = naive.Earley(grammar)
+        for char in 'aba':
+            parser.feed(char)
+        parser.feed("\0")
+
+        for index, state_set in enumerate(parser.chart):
+            state_set_str = set(parser.grammar.fmt_point(state.point) for state in state_set)
+            print(f"{index}\t: {state_set_str}")
+
+        # Assertions
+        assert len(parser.chart) == 4
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[0]) ==
+                {'<start> → •AA', 'A → •bA', 'A → •c', 'A → •Aa'})
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[1]) ==
+                set())
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[2]) ==
+                set())
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[3]) ==
+               set())
+
 
 class TestFastEarley(TestCase):
     def test_simple(self):
