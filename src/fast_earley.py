@@ -1,18 +1,20 @@
 """
-The "naive" implementation of the Earley algorithm.
+The "fast" implementation of the Earley algorithm.
+TODO: Some of the data types and methods are duplicated with the naive version. Perhaps it would be nicer to have a common interface.
 """
 
 from dataclasses import dataclass
-from typing import Set, List, Tuple, TypeAlias, Self
+from typing import Set, List, Tuple, TypeAlias, Self, Union
 
-from cfg import GrammarPoint, Grammar, Symbol
+from cfg import GrammarPoint, Grammar, StarPoint, Symbol
 
 
 @dataclass(frozen=True)
 class Item:
     """An `Item` represents a partial parse of a grammar rule at some point in the input string."""
-    point: GrammarPoint
-    """The partially parsed (i.e. dotted) rule."""
+    point: Union[StarPoint, GrammarPoint]
+    """This is can be a partially parsed (i.e. dotted) rule, like the naive version of Earley algorithm.
+    But this can also be a partially parsed _star_ rule, introduced in the fast version of Earley algorithm."""
     beg: int
     """Where this parse began in the input string."""
 
@@ -54,28 +56,53 @@ class Earley:
         old, new = set(), set()  # the two sets of Earley items as discussed earlier.
         # Go over all the items in `cur_state`
         for it in cur_state:
-            dot_sym = self.grammar.get_symbol_at_point(it.point)  # the symbol right after the `dot`.
-            if dot_sym is None:
-                # Complete: If there is no symbol after the `dot`, we have completed this item.
-                # TODO: optimise here by tracking?
+            assert type(it.point) in {StarPoint, GrammarPoint}
+            if type(it.point) is GrammarPoint:
+                dot_sym = self.grammar.get_symbol_at_point(it.point)  # the symbol right after the `dot`.
+                if dot_sym is None:
+                    # Complete Star: If there is no symbol after the `dot`, we have completed this item.
+                    # TODO: optimise here by tracking?
 
-                # Find any other items that _waiting_ at this item's start position for this item's generating symbol.
-                # Those items can now move forward one step now.
-                more = set(
-                    cit.proceed() for cit in self.chart[it.beg] if
-                    self.grammar.get_symbol_at_point(cit.point) == it.point.sym)
-                # But these items still belongs to the current state, since no input symbol was consumed here.
-                old.update(more)
-            elif dot_sym == next_sym:
-                # Scan: This item was waiting for this particular terminal symbol at this location, so it can proceed.
-                new.add(it.proceed())
-            elif dot_sym not in self.grammar.terminals:
-                # Predict: If `dot_sym` is non-terminal, then we need to expand the item further.
-                more = set(
-                    Item(GrammarPoint(dot_sym, rule, 0), cur_pos)
-                    for rule in range(len(self.grammar.rules[dot_sym])))
-                # Again, no input symbol was consumed, so these also belong to the current state.
-                old.update(more)
+                    # Find any other _star_ items that waiting at this item's start position for this item's
+                    # generating symbol. Those items can now move forward one step now.
+                    # We care only about star items here, because predictions always go through a star item now,
+                    # unlike the naive Earley algorithm.
+                    more = set(
+                        cit.proceed() for cit in self.chart[it.beg]
+                        if type(cit.point) is StarPoint
+                        and not cit.point.done
+                        and cit.point.sym == it.point.sym)
+                    # But these items still belongs to the current state, since no input symbol was consumed here.
+                    old.update(more)
+                elif dot_sym == next_sym:
+                    # Scan: This item was waiting for this particular terminal symbol at this location, so it can
+                    # proceed.
+                    new.add(it.proceed())
+                elif dot_sym not in self.grammar.terminals:
+                    # Predict Star: If `dot_sym` is non-terminal, then we need to expand the item further. But in this
+                    # version, we always expand to a star item first.
+                    # Again, no input symbol was consumed, so these also belong to the current state.
+                    old.add(Item(StarPoint(dot_sym, False), cur_pos))
+            elif type(it.point) is StarPoint:
+                assert it.point.sym not in self.grammar.terminals
+                if it.point.done:
+                    # Complete: This star item was complete. So, now we find any other items that _waiting_ at this
+                    # item's start position for this item's generating symbol. Those items can now move forward one
+                    # step now.
+                    # TODO: optimise here by tracking?
+                    more = set(
+                        cit.proceed() for cit in self.chart[it.beg]
+                        if type(cit.point) is GrammarPoint
+                        and self.grammar.get_symbol_at_point(cit.point) == it.point.sym)
+                    # Again, no input symbol was consumed, so these also belong to the current state.
+                    old.update(more)
+                else:
+                    # Predict: Expand the star item into a proper partial-parse item.
+                    more = set(
+                        Item(GrammarPoint(it.point.sym, rule, 0), cur_pos)
+                        for rule in range(len(self.grammar.rules[it.point.sym])))
+                    # Again, no input symbol was consumed, so these also belong to the current state.
+                    old.update(more)
         return old, new
 
     def feed(self, c: str):
