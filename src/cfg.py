@@ -77,7 +77,7 @@ class Grammar:
             self.terminals.add(sym_id)
         return self
 
-    def convert_rule(self, rule: Tuple[str, List[str]]) -> Tuple[int, Rule]:
+    def convert_rule(self, rule: Tuple[str, List[str]]) -> Tuple[Symbol, Rule]:
         """Given a rule represented using the string representations of its symbols,
         produce its integer representation."""
         sym, parts = rule
