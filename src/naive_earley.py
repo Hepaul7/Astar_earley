@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Set, List, Tuple, TypeAlias, Self
 
 from cfg import GrammarPoint, Grammar, Symbol
+from node import Node, Terminal, NonTerminal
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ class Earley:
     def __init__(self, g: Grammar):
         self.grammar = g
         self.chart = [set()]
-        start = self.grammar.symbols.inverse["<start>"]
+        start = self.grammar.symbols.inverse[NonTerminal("<start>")]
         for rule in range(len(self.grammar.rules[start])):
             self.chart[0].add(Item(GrammarPoint(start, rule, 0), 0))
 
@@ -78,10 +79,10 @@ class Earley:
                 old.update(more)
         return old, new
 
-    def feed(self, c: str):
+    def feed(self, c: Terminal):
+        assert isinstance(c, Terminal), f'expected a Terminal, got {type(c)}'
         """_Feed_ the parser one terminal symbol `c`, one that comes after all the symbols it had been
         fed so far. This generates additional states according to the Earley algorithm."""
-
         cid = self.grammar.terminal_symbol(c)  # the current terminal symbol's integer representation
         cur = len(self.chart) - 1  # the current location at the input
         cur_state = self.chart[cur]  # the items that need processing
@@ -108,5 +109,5 @@ class Earley:
         # But, ignore a special symbol `\0` which we will use just to trigger
         # all the pending predictions and completions for the old states.
         # TODO: Can this be done better?
-        if c != "\0":
+        if c != Terminal("\0"):
             self.chart.append(new)

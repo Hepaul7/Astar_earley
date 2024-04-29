@@ -1,33 +1,33 @@
 from functools import total_ordering
-from typing import Callable, Iterable, List, Tuple, Union, Self
+from typing import Callable, Iterable, List, Tuple, Union, Self, Optional
 
 
 @total_ordering
-class Nonterminal:
+class Node:
     """
-    A non-terminal symbol.
+    A node in the tree.
     """
     def __init__(self, symbol: str):
-        """ Create a nonterminal.
-        :param symbol: The symbol of the nonterminal.
+        """ Create a node.
+        :param symbol: The symbol of the node.
         symbol is hashable and immutable, for now accept string only.
         """
         self._symbol = symbol
 
     def symbol(self) -> str:
-        """ Get the symbol of the nonterminal.
+        """ Get the symbol of the node.
         """
         return self._symbol
 
     def __eq__(self, other: Self) -> bool:
         """ Equality check.
-        :param other: The other nonterminal.
+        :param other: The other node.
         """
         return self._symbol == other.symbol()
 
     def __lt__(self, other: Self) -> bool:
         """ Less than operator.
-        :param other: The other nonterminal.
+        :param other: The other node.
         """
         return self._symbol < other._symbol
 
@@ -35,14 +35,42 @@ class Nonterminal:
         return hash(self._symbol)
 
 
-def nonterminal(symbol: str) -> Nonterminal:
+class NonTerminal(Node):
+    """
+    These inherit Node, it should have different functions than terminal
+    in the future
+    """
+    def __init__(self, symbol: str):
+        super().__init__(symbol)
+
+
+class Terminal(Node):
+    """
+    These inherit Node, it should have different functions than NonTerminal.
+    """
+    def __init__(self, symbol: str):
+        super().__init__(symbol)
+
+
+class InputString:
+    """
+    Converts InputString into Terminals
+    Sep [optional] is the separation between Terminals
+    If nothing provided then no separation
+    """
+    def __init__(self, string: str, sep: Optional[str] = None):
+        split_string = string.split(sep) if sep is not None else string
+        self.nodes = [Terminal(x) for x in split_string]
+
+
+def nonterminal(symbol: str) -> NonTerminal:
     """ Create a nonterminal.
     :param symbol: The symbol of the nonterminal.
     """
-    return Nonterminal(symbol)
+    return NonTerminal(symbol)
 
 
-def nonterminals(*symbols: str) -> Iterable[Nonterminal]:
+def nonterminals(*symbols: str) -> Iterable[NonTerminal]:
     """ Create a sequence of nonterminals.
     :param symbols: The symbols of the nonterminals.
     Example:
@@ -56,7 +84,7 @@ def nonterminals(*symbols: str) -> Iterable[Nonterminal]:
 def is_nonterminal(item):
     """ Check if item is a nonterminal.
     """
-    return isinstance(item, Nonterminal)
+    return isinstance(item, NonTerminal)
 
 
 def is_terminal(item):
@@ -70,16 +98,16 @@ class Production:
     """
     A production rule.
     """
-    def __init__(self, lhs: Nonterminal, rhs: List[str | Nonterminal]):
+    def __init__(self, lhs: NonTerminal, rhs: List[str | NonTerminal]):
         self._lhs = lhs
         self._rhs = tuple(rhs)
 
-    def lhs(self) -> Nonterminal:
+    def lhs(self) -> NonTerminal:
         """ Get the lhs of the production.
         """
         return self._lhs
 
-    def rhs(self) -> tuple[str | Nonterminal, ...]:
+    def rhs(self) -> tuple[str | NonTerminal, ...]:
         """ Get the rhs of the production.
         """
         return self._rhs
