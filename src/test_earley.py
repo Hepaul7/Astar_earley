@@ -149,5 +149,6 @@ class TestFastEarley(TestCase):
             st_str = set(p.grammar.fmt_point(s.point) for s in st)
             print(f"{k}\t: {st_str}")
 
+
 if __name__ == '__main__':
     unittest.main()
