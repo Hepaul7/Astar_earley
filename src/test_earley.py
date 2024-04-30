@@ -66,6 +66,7 @@ class TestNaiveEarley(TestCase):
             p.feed(c)
         p.feed(Terminal("\0"))
 
+        print('CHART:')
         for k, st in enumerate(p.chart):
             st_str = set(p.grammar.fmt_point(s.point) for s in st)
             print(f"{k}\t: {st_str}")
@@ -79,6 +80,19 @@ class TestNaiveEarley(TestCase):
                 {'A → Aa•', 'A → •bA', 'A → •Aa', 'A → A•a', '<start> → A•A', 'A → •c'})
         assert (set(p.grammar.fmt_point(s.point) for s in p.chart[3]) ==
                 {'<start> → AA•', 'A → c•', 'A → A•a'})
+
+        assert ([c.fmt(p.grammar) for c in p.complete_items()] == ['<start> → AA• [0, 3)'])
+        fin = p.complete_items()[0]
+        dt_repr = p.trace_deduction(fin).fmt_tree(p.grammar, s=inp)
+        print('DERIVATION TREE:\n', '\n'.join(dt_repr))
+        assert dt_repr == [
+            "<start> → AA• [0, 3) cac",
+            "\tA → Aa• [0, 2) ca",
+            "\t\tA → c• [0, 1) c",
+            "\t\t\tc [0, 1) c",
+            "\t\ta [1, 2) a",
+            "\tA → c• [2, 3) c",
+            "\t\tc [2, 3) c"]
 
     def test_reject(self):
         grammar = toy_grammar()
