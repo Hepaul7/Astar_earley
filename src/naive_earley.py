@@ -1,13 +1,12 @@
 """
 The "naive" implementation of the Earley algorithm.
 """
-from copy import deepcopy, copy
 from dataclasses import dataclass
 from typing import Set, List, Tuple, TypeAlias, Self, Dict, Union
 
 from cfg import GrammarPoint, Grammar, Symbol
-from node import Node, Terminal, NonTerminal
 from deduction import DeductionSpan, DeductionNode
+from node import Terminal, NonTerminal
 
 
 @dataclass(frozen=True)
@@ -155,5 +154,5 @@ class Earley:
         if at is None:
             at = len(self.chart) - 1  # the current location at the input
         return [c.deduction_span(at) for c in self.chart[at]
-                if c.point.sym == self.grammar.symbols.inverse["<start>"]
+                if c.point.sym == self.grammar.symbols.inverse[NonTerminal("<start>")]
                 and self.grammar.get_symbol_at_point(c.point) is None]

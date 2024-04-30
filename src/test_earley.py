@@ -3,8 +3,7 @@ from unittest import TestCase
 
 import fast_earley as fast
 import naive_earley as naive
-
-from node import Node, Terminal, NonTerminal, InputString
+from node import Terminal, NonTerminal, InputString
 
 
 def toy_grammar() -> naive.Grammar:
@@ -61,8 +60,8 @@ class TestNaiveEarley(TestCase):
     def test_simple(self):
         g = toy_grammar()
         p = naive.Earley(g)
-        input_strings = InputString("cac").nodes
-        for c in input_strings:
+        input_strings = InputString("cac")
+        for c in input_strings.nodes:
             p.feed(c)
         p.feed(Terminal("\0"))
 
@@ -83,7 +82,7 @@ class TestNaiveEarley(TestCase):
 
         assert ([c.fmt(p.grammar) for c in p.complete_items()] == ['<start> → AA• [0, 3)'])
         fin = p.complete_items()[0]
-        dt_repr = p.trace_deduction(fin).fmt_tree(p.grammar, s=inp)
+        dt_repr = p.trace_deduction(fin).fmt_tree(p.grammar, s=input_strings)
         print('DERIVATION TREE:\n', '\n'.join(dt_repr))
         assert dt_repr == [
             "<start> → AA• [0, 3) cac",
@@ -92,7 +91,8 @@ class TestNaiveEarley(TestCase):
             "\t\t\tc [0, 1) c",
             "\t\ta [1, 2) a",
             "\tA → c• [2, 3) c",
-            "\t\tc [2, 3) c"]
+            "\t\tc [2, 3) c",
+        ]
 
     def test_reject(self):
         grammar = toy_grammar()
@@ -115,14 +115,14 @@ class TestNaiveEarley(TestCase):
         assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[2]) ==
                 set())
         assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[3]) ==
-               set())
+                set())
 
     def test_long_terminal(self):
         grammar = grammar_1()
         parser = naive.Earley(grammar)
         sep = ' '
-        input_strings = InputString("book that flight", sep).nodes
-        for c in input_strings:
+        input_strings = InputString("book that flight", sep)
+        for c in input_strings.nodes:
             parser.feed(c)
         parser.feed(Terminal("\0"))
         for index, state_set in enumerate(parser.chart):
@@ -131,13 +131,31 @@ class TestNaiveEarley(TestCase):
 
         assert len(parser.chart) == 4
         assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[0]) ==
-                {'NP → •Det Nominal', 'Verb → •book', 'VP → •Verb NP', 'VP → •Verb', '<start> → •NP VP', 'Det → •that', '<start> → •VP'})
+                {'NP → •Det Nominal', 'Verb → •book', 'VP → •Verb NP', 'VP → •Verb', '<start> → •NP VP', 'Det → •that',
+                 '<start> → •VP'})
         assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[1]) ==
                 {'Verb → book•', 'VP → Verb•NP', 'Det → •that', '<start> → VP•', 'VP → Verb•', 'NP → •Det Nominal'})
         assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[2]) ==
                 {'Noun → •flight', 'Det → that•', 'Noun → •book', 'Nominal → •Noun', 'NP → Det•Nominal'})
         assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[3]) ==
                 {'NP → DetNominal•', 'Noun → flight•', '<start> → VP•', 'VP → VerbNP•', 'Nominal → Noun•'})
+
+        assert ([c.fmt(parser.grammar) for c in parser.complete_items()] == ['<start> → VP• [0, 3)'])
+        fin = parser.complete_items()[0]
+        dt_repr = parser.trace_deduction(fin).fmt_tree(parser.grammar, s=input_strings)
+        print('DERIVATION TREE:\n', '\n'.join(dt_repr))
+        assert dt_repr == [
+            "<start> → VP• [0, 3) book that flight",
+            "\tVP → VerbNP• [0, 3) book that flight",
+            "\t\tVerb → book• [0, 1) book",
+            "\t\t\tbook [0, 1) book",
+            "\t\tNP → DetNominal• [1, 3) that flight",
+            "\t\t\tDet → that• [1, 2) that",
+            "\t\t\t\tthat [1, 2) that",
+            "\t\t\tNominal → Noun• [2, 3) flight",
+            "\t\t\t\tNoun → flight• [2, 3) flight",
+            "\t\t\t\t\tflight [2, 3) flight",
+        ]
 
 
 class TestFastEarley(TestCase):

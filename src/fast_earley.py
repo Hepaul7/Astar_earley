@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Set, List, Tuple, TypeAlias, Self, Union
 
 from cfg import GrammarPoint, Grammar, StarPoint, Symbol
-from node import Node, NonTerminal, Terminal
+from node import NonTerminal, Terminal
 
 
 @dataclass(frozen=True)
