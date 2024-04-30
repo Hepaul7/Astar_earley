@@ -3,7 +3,8 @@ We keep the representation of various objects related to the context-free gramma
 """
 
 from dataclasses import dataclass, field
-from typing import Set, List, Tuple, Union, TypeAlias, Self
+from typing import Set, List, Tuple, Union, TypeAlias, Self, Optional
+from node import Node, NonTerminal, Terminal
 
 from bidict import bidict
 
@@ -50,7 +51,7 @@ class Grammar:
     """A `Grammar` represents the entire description of a context free grammar,
     keeping track of its symbols and rules."""
 
-    symbols: bidict[Symbol, str] = field(default_factory=bidict)
+    symbols: bidict[Symbol, Node] = field(default_factory=bidict)
     """A bijective map matching a `Symbol` to its string representation."""
     terminals: Set[Symbol] = field(default_factory=set)
     """A set of all terminal symbols."""
@@ -62,22 +63,22 @@ class Grammar:
         self.symbols = bidict()
         self.terminals = set()
         self.rules = []
-        self.add_symbol("<start>", False).add_symbol("\0", True)
+        self.add_symbol(NonTerminal("<start>"), False).add_symbol(Terminal("\0"), True)
 
-    def add_symbol(self, sym: str, terminal: bool) -> Self:
+    def add_symbol(self, sym: Node, terminal: bool) -> Self:
         """Register a terminal or non-terminal symbol to the grammar."""
-        assert len(sym) > 0, "empty symbol not allowed"
+        # We can remove the terminal parameter now, but I don't want to modify the function signature yet.
+        assert len(sym.symbol()) > 0, "symbol cannot be empty!"
         sym_id = len(self.symbols)
-        if terminal:
-            assert len(sym) == 1, f"a terminal symbol must be a single character: found {sym}"
+        if isinstance(sym, Terminal):
             assert sym_id >= len(self.rules) or len(self.rules[sym_id]) == 0, \
                 f"error adding a terminal symbol `{sym}`: a production rule exists for it"
         self.symbols[sym_id] = sym
-        if terminal:
+        if isinstance(sym, Terminal):
             self.terminals.add(sym_id)
         return self
 
-    def convert_rule(self, rule: Tuple[str, List[str]]) -> Tuple[Symbol, Rule]:
+    def convert_rule(self, rule: Tuple[Node, List[Node]]) -> Tuple[Symbol, Rule]:
         """Given a rule represented using the string representations of its symbols,
         produce its integer representation."""
         sym, parts = rule
@@ -92,7 +93,7 @@ class Grammar:
             part_ids.append(p_id)
         return sym_id, part_ids
 
-    def add_rule(self, r: Tuple[str, List[str]]) -> Self:
+    def add_rule(self, r: Tuple[Node, List[Node]]) -> Self:
         """Add a single production rule, provided its string representation, to the grammar."""
         sym_id, rule = self.convert_rule(r)
         if sym_id >= len(self.rules):
@@ -105,7 +106,7 @@ class Grammar:
         rule = self.rules[pt.sym][pt.rule]
         return rule[pt.dot] if pt.dot < len(rule) else None
 
-    def terminal_symbol(self, c: str) -> Symbol:
+    def terminal_symbol(self, c: Terminal) -> Symbol:
         """Given a terminal symbol `c` in its string representation, find the integer representation of it."""
         assert c in self.symbols.inverse and self.symbols.inverse[c] in self.terminals
         return self.symbols.inverse[c]
@@ -113,11 +114,11 @@ class Grammar:
     # A bunch of pretty-printing helpers follows.
 
     def fmt_rules_for(self, sym: Symbol) -> str:
-        sym_str = self.symbols[sym]
+        sym_str = self.symbols[sym].symbol()
         assert sym_str is not None, f"{sym} is not a valid symbol in the grammar"
         if sym >= len(self.rules) or len(self.rules[sym]) == 0:
             return ""
-        return f"{sym_str} → {'|'.join([''.join([self.symbols[p] for p in r]) for r in self.rules[sym]])}"
+        return f"{sym_str} → {'|'.join([''.join([self.symbols[p].symbol() for p in r]) for r in self.rules[sym]])}"
 
     def fmt_all_rules(self) -> List[str]:
         return [x for x in [self.fmt_rules_for(sym) for sym in range(len(self.rules))] if x]
@@ -125,19 +126,20 @@ class Grammar:
     def fmt_all_symbols(self) -> List[str]:
         return [f"{sym}{'*' if symid in self.terminals else ''}" for symid, sym in self.symbols.items()]
 
-    def fmt_point(self, pt: Union[GrammarPoint, StarPoint]) -> str:
+    def fmt_point(self, pt: Union[GrammarPoint, StarPoint], sep: Optional[str] = None) -> str:
+        sep = sep if sep is not None else ''
         if type(pt) is GrammarPoint:
             assert pt.sym < len(self.rules), f"moral panic: no rule with a symbol {pt.sym} for item {pt}!"
             assert pt.rule < len(self.rules[pt.sym]), f"moral panic: no {pt.rule}-th rule for item {pt}!"
             assert pt.sym in self.symbols, f"moral panic: {pt.sym} is not a valid symbol for item {pt}"
-            sym = self.symbols[pt.sym]
+            sym = self.symbols[pt.sym].symbol()
             rule = self.rules[pt.sym][pt.rule]
             assert pt.dot <= len(
                 rule), f"moral panic: rule's length is only {len(rule)}, dot is at {pt.dot} for item {pt}!"
-            parts = [self.symbols[p] for p in rule]
+            parts = [self.symbols[p].symbol() for p in rule]
             head, tail = parts[:pt.dot], parts[pt.dot:]
-            return f"{sym} → {''.join(head)}•{''.join(tail)}"
+            return f"{sym} → {''.join(head)}•{sep.join(tail)}"
         else:
             assert pt.sym in self.symbols, f"moral panic: {pt.sym} is not a valid symbol for item {pt}"
-            sym = self.symbols[pt.sym]
+            sym = self.symbols[pt.sym].symbol()
             return f"{sym} → ★•" if pt.done else f"{sym} → •★"
