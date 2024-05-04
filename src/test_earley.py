@@ -200,6 +200,78 @@ class TestFastEarley(TestCase):
             "\t\t\tc [2, 3) c",
         ]
 
+    def test_reject(self):
+        grammar = toy_grammar()
+        parser = fast.Earley(grammar)
+        input_strings = InputString("aba").nodes
+        for c in input_strings:
+            parser.feed(c)
+        parser.feed(Terminal("\0"))
+
+        for index, state_set in enumerate(parser.chart):
+            state_set_str = set(parser.grammar.fmt_point(state.point) for state in state_set)
+            print(f"{index}\t: {state_set_str}")
+
+        # Assertions
+        assert len(parser.chart) == 4
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[0]) ==
+                {'<start> → •AA', 'A → •c', 'A → •★', 'A → •bA', 'A → •Aa'})
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[1]) ==
+                set())
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[2]) ==
+                set())
+        assert (set(parser.grammar.fmt_point(state.point) for state in parser.chart[3]) ==
+                set())
+
+    def test_long_terminal(self):
+        grammar = grammar_1()
+        parser = fast.Earley(grammar)
+        sep = ' '
+        input_strings = InputString("book that flight", sep)
+        for c in input_strings.nodes:
+            parser.feed(c)
+        parser.feed(Terminal("\0"))
+        for index, state_set in enumerate(parser.chart):
+            state_set_str = set(parser.grammar.fmt_point(state.point, sep) for state in state_set)
+            print(f"{index}\t: {state_set_str}")
+
+        assert len(parser.chart) == 4
+        assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[0]) ==
+                {'NP → •★', 'VP → •★', 'Det → •★', 'VP → •Verb', 'Verb → •★', 'Verb → •book', 'Det → •that',
+                 'NP → •Det Nominal', 'VP → •Verb NP', '<start> → •VP', '<start> → •NP VP'})
+        assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[1]) ==
+                {'<start> → VP•', 'VP → ★•', 'Det → •★', 'Det → •that', 'VP → Verb•', 'NP → •★', 'VP → Verb•NP',
+                 'NP → •Det Nominal', 'Verb → ★•', 'Verb → book•'})
+        assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[2]) ==
+                {'Noun → •flight', 'Nominal → •★', 'Det → ★•', 'Noun → •★', 'Noun → •book', 'Det → that•',
+                 'Nominal → •Noun', 'NP → Det•Nominal'})
+        assert (set(parser.grammar.fmt_point(s.point, sep) for s in parser.chart[3]) ==
+                {'<start> → VP•', 'VP → ★•', 'Noun → ★•', 'Nominal → Noun•', 'Noun → flight•', 'Nominal → ★•',
+                 'VP → VerbNP•', 'NP → ★•', 'NP → DetNominal•'})
+
+        assert ([c.fmt(parser.grammar) for c in parser.complete_items()] == ['<start> → VP• [0, 3)'])
+        fin = parser.complete_items()[0]
+        dt_repr = parser.trace_deduction(fin).fmt_tree(parser.grammar, s=input_strings)
+        print('DERIVATION TREE:\n', '\n'.join(dt_repr))
+        assert dt_repr == [
+            "<start> → VP• [0, 3) book that flight",
+            "\tVP★ [0, 3) book that flight",
+            "\t\tVP → VerbNP• [0, 3) book that flight",
+            "\t\t\tVerb★ [0, 1) book",
+            "\t\t\t\tVerb → book• [0, 1) book",
+            "\t\t\t\t\tbook [0, 1) book",
+            "\t\t\tNP★ [1, 3) that flight",
+            "\t\t\t\tNP → DetNominal• [1, 3) that flight",
+            "\t\t\t\t\tDet★ [1, 2) that",
+            "\t\t\t\t\t\tDet → that• [1, 2) that",
+            "\t\t\t\t\t\t\tthat [1, 2) that",
+            "\t\t\t\t\tNominal★ [2, 3) flight",
+            "\t\t\t\t\t\tNominal → Noun• [2, 3) flight",
+            "\t\t\t\t\t\t\tNoun★ [2, 3) flight",
+            "\t\t\t\t\t\t\t\tNoun → flight• [2, 3) flight",
+            "\t\t\t\t\t\t\t\t\tflight [2, 3) flight",
+        ]
+
 
 if __name__ == '__main__':
     unittest.main()
