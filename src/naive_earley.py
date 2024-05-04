@@ -76,8 +76,11 @@ class Earley:
                     self.grammar.get_symbol_at_point(cit.point) == it.point.sym)
                 # But these items still belongs to the current state, since no input symbol was consumed here.
                 old.update(more)
+
+                # Now, keep track of the deduction tree.
                 # The item `it` completes the item `nit` (it is assumed that `it` was predicted by the symbol right
-                # after the `dot` in `nit`).
+                # after the `dot` in `nit`). So, the partial parse of `nit` is deduced by the full parse of `it`,
+                # unless `nit` is already claimed.
                 it_span = it.deduction_span(cur_pos)
                 for nit in more:
                     nit_span = nit.deduction_span(cur_pos)
@@ -87,6 +90,10 @@ class Earley:
                 # Scan: This item was waiting for this particular terminal symbol at this location, so it can proceed.
                 nit = it.proceed()
                 new.add(nit)
+
+                # Now, keep track of the deduction tree.
+                # Again, the partial parse of `nit` is deduced by a single symbol `dot_sym`,
+                # unless `nit` is already claimed.
                 nit_span = nit.deduction_span(cur_pos + 1)
                 if nit_span not in self.deduced_by:
                     self.deduced_by[nit_span] = DeductionSpan(dot_sym, (cur_pos, cur_pos + 1))
@@ -134,20 +141,35 @@ class Earley:
             self.chart.append(new)
 
     def trace_deduction(self, it: DeductionSpan) -> DeductionNode:
+        """Trace back one possible deduction tree rooted at `it` and return that root."""
+
+        # We do this recursively. First we create an empty node for `it`.
         beg, end = it.span
         node = DeductionNode(it, [])
         if type(it.point) is GrammarPoint:
-            for dot in range(it.point.dot, 0, -1):
-                pt = GrammarPoint(it.point.sym, it.point.rule, dot)
-                t = DeductionSpan(pt, (beg, end))
-                # print('|', t.fmt(self.grammar), 'for', it.fmt(self.grammar))
-                by = self.deduced_by[t]
-                # print('|\tby', by.fmt(self.grammar))
-                if t != by:
-                    c = self.trace_deduction(by)
-                    node.children.append(c)
+            # For a production rule (can be partially parsed), we walk `dot` backward on the rule, starting at the dot.
+            for cdot in range(it.point.dot, 0, -1):
+                # At each step, we find out the deduction of the particular symbol in the rule we are right now on.
+                # This symbol must have been deduced and that deduction tree will become the subtree of `node`.
+                cit = GrammarPoint(it.point.sym, it.point.rule, cdot)  # a version of `it` with the dot at `cdot`.
+                cit_span = DeductionSpan(cit, (beg, end))
+
+                # Find out how `cit` was deduced.
+                by = self.deduced_by[cit_span]
+                assert cit_span != by  # We don't expect any "self deduction"
+                by_subtree = self.trace_deduction(by)
+
+                # Make the deduction tree of `cit` a subtree of the deduction of `it`.
+                # Note that we are walking back but building the `children` list forward. We'll have to reverse that.
+                node.children.append(by_subtree)
+                # Also, the deduction of `cit` already covers some part of the span.
+                # We only want the deduction for the remainder of the span as we walk back.
                 end = by.span[0]
+            # Reverse the `children` list which we built in forward direction when walking back on the rule.
             node.children.reverse()
+        else:
+            # If `it` corresponds to just a terminal symbol then there is no subtree.
+            pass
         return node
 
     def complete_items(self, at: Union[int, None] = None) -> List[DeductionSpan]:

@@ -162,8 +162,8 @@ class TestFastEarley(TestCase):
     def test_simple(self):
         g = toy_grammar()
         p = fast.Earley(g)
-        input_strings = InputString("cac").nodes
-        for c in input_strings:
+        input_strings = InputString("cac")
+        for c in input_strings.nodes:
             p.feed(c)
         p.feed(Terminal("\0"))
 
@@ -180,6 +180,25 @@ class TestFastEarley(TestCase):
         for k, st in enumerate(p.chart):
             st_str = set(p.grammar.fmt_point(s.point) for s in st)
             print(f"{k}\t: {st_str}")
+
+        for k, v in p.deduced_by.items():
+            print(f"{k.fmt(p.grammar)} is deduced by {v.fmt(p.grammar)}")
+        assert ([c.fmt(p.grammar) for c in p.complete_items()] == ['<start> → AA• [0, 3)'])
+        fin = p.complete_items()[0]
+        dt_repr = p.trace_deduction(fin).fmt_tree(p.grammar, s=input_strings)
+        print('DERIVATION TREE:\n', '\n'.join(dt_repr))
+        assert dt_repr == [
+            "<start> → AA• [0, 3) cac",
+            "\tA★ [0, 2) ca",
+            "\t\tA → Aa• [0, 2) ca",
+            "\t\t\tA★ [0, 1) c",
+            "\t\t\t\tA → c• [0, 1) c",
+            "\t\t\t\t\tc [0, 1) c",
+            "\t\t\ta [1, 2) a",
+            "\tA★ [2, 3) c",
+            "\t\tA → c• [2, 3) c",
+            "\t\t\tc [2, 3) c",
+        ]
 
 
 if __name__ == '__main__':

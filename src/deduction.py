@@ -1,19 +1,21 @@
 from dataclasses import dataclass
 from typing import Tuple, Union, Self, List
 
-from cfg import GrammarPoint, Symbol, Grammar
+from cfg import GrammarPoint, Symbol, Grammar, StarPoint
 from node import InputString
 
 
 @dataclass(frozen=True)
 class DeductionSpan:
-    point: Union[GrammarPoint, Symbol]
+    point: Union[GrammarPoint, StarPoint, Symbol]
     span: Tuple[int, int]
 
     def fmt(self, grammar: Grammar) -> str:
         b, e = self.span
         if type(self.point) is GrammarPoint:
             return f"{grammar.fmt_point(self.point)} [{b}, {e})"
+        elif type(self.point) is StarPoint:
+            return f"{grammar.symbols[self.point.sym].symbol()}★ [{b}, {e})"
         else:
             return f"{grammar.symbols[self.point].symbol()} [{b}, {e})"
 
