@@ -1,12 +1,12 @@
 """
 The "naive" implementation of the Earley algorithm.
 """
-
 from dataclasses import dataclass
-from typing import Set, List, Tuple, TypeAlias, Self
+from typing import Set, List, Tuple, TypeAlias, Self, Dict, Union
 
 from cfg import GrammarPoint, Grammar, Symbol
-from node import Node, Terminal, NonTerminal
+from deduction import DeductionSpan, DeductionNode
+from node import Terminal, NonTerminal
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,9 @@ class Item:
         PRE: `dot` must _not_ be at or past the end of the rule."""
         return Item(self.point.proceed(), self.beg)
 
+    def deduction_span(self, end: int) -> DeductionSpan:
+        return DeductionSpan(self.point, (self.beg, end))
+
 
 State: TypeAlias = Set[Item]
 """A `State` is the set of all items (i.e. partially parsed rules) to be considered
@@ -29,6 +32,10 @@ for parsing the terminal symbol at a particular point in the input string."""
 Chart: TypeAlias = List[State]
 """A `Chart` is the list of all the states for the input, with an extra state for the very
 beginning of the string (i.e. the chart has a length of `n+1` where `n` is the input size)."""
+DeductionChart: TypeAlias = Dict[DeductionSpan, DeductionSpan]
+"""For an item `key`, returns one possible item `value`, the completion of which proves of this item.
+The span of the prior partial parse can be computed from `key` and `value`.
+TODO: Keeping a hashmap isn't very performant. Consider finding an alternative."""
 
 
 @dataclass
@@ -37,10 +44,12 @@ class Earley:
     in a particular grammar with the Earley algorithm."""
     grammar: Grammar
     chart: Chart
+    deduced_by: DeductionChart
 
     def __init__(self, g: Grammar):
         self.grammar = g
         self.chart = [set()]
+        self.deduced_by = dict()
         start = self.grammar.symbols.inverse[NonTerminal("<start>")]
         for rule in range(len(self.grammar.rules[start])):
             self.chart[0].add(Item(GrammarPoint(start, rule, 0), 0))
@@ -67,9 +76,27 @@ class Earley:
                     self.grammar.get_symbol_at_point(cit.point) == it.point.sym)
                 # But these items still belongs to the current state, since no input symbol was consumed here.
                 old.update(more)
+
+                # Now, keep track of the deduction tree.
+                # The item `it` completes the item `nit` (it is assumed that `it` was predicted by the symbol right
+                # after the `dot` in `nit`). So, the partial parse of `nit` is deduced by the full parse of `it`,
+                # unless `nit` is already claimed.
+                it_span = it.deduction_span(cur_pos)
+                for nit in more:
+                    nit_span = nit.deduction_span(cur_pos)
+                    if nit_span not in self.deduced_by:
+                        self.deduced_by[nit_span] = it_span
             elif dot_sym == next_sym:
                 # Scan: This item was waiting for this particular terminal symbol at this location, so it can proceed.
-                new.add(it.proceed())
+                nit = it.proceed()
+                new.add(nit)
+
+                # Now, keep track of the deduction tree.
+                # Again, the partial parse of `nit` is deduced by a single symbol `dot_sym`,
+                # unless `nit` is already claimed.
+                nit_span = nit.deduction_span(cur_pos + 1)
+                if nit_span not in self.deduced_by:
+                    self.deduced_by[nit_span] = DeductionSpan(dot_sym, (cur_pos, cur_pos + 1))
             elif dot_sym not in self.grammar.terminals:
                 # Predict: If `dot_sym` is non-terminal, then we need to expand the item further.
                 more = set(
@@ -80,9 +107,10 @@ class Earley:
         return old, new
 
     def feed(self, c: Terminal):
-        assert isinstance(c, Terminal), f'expected a Terminal, got {type(c)}'
         """_Feed_ the parser one terminal symbol `c`, one that comes after all the symbols it had been
         fed so far. This generates additional states according to the Earley algorithm."""
+        assert isinstance(c, Terminal), f'expected a Terminal, got {type(c)}'
+
         cid = self.grammar.terminal_symbol(c)  # the current terminal symbol's integer representation
         cur = len(self.chart) - 1  # the current location at the input
         cur_state = self.chart[cur]  # the items that need processing
@@ -111,3 +139,42 @@ class Earley:
         # TODO: Can this be done better?
         if c != Terminal("\0"):
             self.chart.append(new)
+
+    def trace_deduction(self, it: DeductionSpan) -> DeductionNode:
+        """Trace back one possible deduction tree rooted at `it` and return that root."""
+
+        # We do this recursively. First we create an empty node for `it`.
+        beg, end = it.span
+        node = DeductionNode(it, [])
+        if type(it.point) is GrammarPoint:
+            # For a production rule (can be partially parsed), we walk `dot` backward on the rule, starting at the dot.
+            for cdot in range(it.point.dot, 0, -1):
+                # At each step, we find out the deduction of the particular symbol in the rule we are right now on.
+                # This symbol must have been deduced and that deduction tree will become the subtree of `node`.
+                cit = GrammarPoint(it.point.sym, it.point.rule, cdot)  # a version of `it` with the dot at `cdot`.
+                cit_span = DeductionSpan(cit, (beg, end))
+
+                # Find out how `cit` was deduced.
+                by = self.deduced_by[cit_span]
+                assert cit_span != by  # We don't expect any "self deduction"
+                by_subtree = self.trace_deduction(by)
+
+                # Make the deduction tree of `cit` a subtree of the deduction of `it`.
+                # Note that we are walking back but building the `children` list forward. We'll have to reverse that.
+                node.children.append(by_subtree)
+                # Also, the deduction of `cit` already covers some part of the span.
+                # We only want the deduction for the remainder of the span as we walk back.
+                end = by.span[0]
+            # Reverse the `children` list which we built in forward direction when walking back on the rule.
+            node.children.reverse()
+        else:
+            # If `it` corresponds to just a terminal symbol then there is no subtree.
+            pass
+        return node
+
+    def complete_items(self, at: Union[int, None] = None) -> List[DeductionSpan]:
+        if at is None:
+            at = len(self.chart) - 1  # the current location at the input
+        return [c.deduction_span(at) for c in self.chart[at]
+                if c.point.sym == self.grammar.symbols.inverse[NonTerminal("<start>")]
+                and self.grammar.get_symbol_at_point(c.point) is None]
