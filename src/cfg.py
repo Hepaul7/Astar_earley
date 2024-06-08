@@ -67,7 +67,7 @@ class Grammar:
 
     def add_symbol(self, sym: Node, terminal: bool) -> Self:
         """Register a terminal or non-terminal symbol to the grammar."""
-        # We can remove the terminal parameter now, but I don't want to modify the function signature yet.
+        # Paul: We can remove the terminal parameter now, but I don't want to modify the function signature yet.
         assert len(sym.symbol()) > 0, "symbol cannot be empty!"
         sym_id = len(self.symbols)
         if isinstance(sym, Terminal):
@@ -143,3 +143,77 @@ class Grammar:
             assert pt.sym in self.symbols, f"moral panic: {pt.sym} is not a valid symbol for item {pt}"
             sym = self.symbols[pt.sym].symbol()
             return f"{sym} → ★•" if pt.done else f"{sym} → •★"
+
+
+def from_string(string: str, comment="#"):
+    """
+    Creates a CFG from a string representation of it.
+    Right now it does NOT work for formats with |
+    An example of a valid input would be
+        A → b:	0.142
+        A → c:	0.24
+        A → a:	0.448
+        A → d:	0.33
+        A → A A:	0.14
+        A → A B:	0.398
+        A → A D:	0.301
+        A → C C:	0.125
+        B → b:	0.39
+        B → c:	0.433
+        B → a:	0.435
+        B → d:	0.359
+        B → A C:	0.121
+        B → B B:	0.036
+        B → D B:	0.476
+        B → D C:	0.352
+        C → b:	0.391
+        C → c:	0.173
+        C → B D:	0.062
+        C → C D:	0.099
+        D → d:	0.15
+        D → A A:	0.361
+        D → A D:	0.33
+        D → B A:	0.04
+        S → A A:	0.207
+        S → A C:	0.104
+    Credits: AFLT
+    """
+    # Paul: sorry, the code is a little bit messy after some debugging
+    # Also, more testing is needed, I copied this logic from AFLT but there
+    # might be subtle differences.
+
+    cfg = Grammar()
+    all_symbols = {}
+    for line in string.split("\n"):
+        print(f'new line: {line}')
+        line = line.strip()
+        if len(line) == 0:
+            continue
+        if line[0] == comment:
+            continue
+
+        head_str, tmp = line.split("→")
+        tail_str, weight = tmp.split(":")   # this is for the weighted case only
+        tail_str = tail_str.strip().split()
+
+        head = NonTerminal(head_str.strip())
+        if head_str.strip() not in all_symbols:
+            cfg.add_symbol(head, False)
+            all_symbols[head_str.strip()] = head
+        tail = []
+        for x in tail_str:
+            x = x.strip()
+            if x.isupper():
+                if x not in all_symbols:
+                    all_symbols[x] = NonTerminal(x)
+                    cfg.add_symbol(all_symbols[x], False)
+                x = all_symbols[x]
+            elif x.islower() or not x.isalpha():
+                if x not in all_symbols:
+                    all_symbols[x] = Terminal(x)
+                    cfg.add_symbol(all_symbols[x], True)
+                x = all_symbols[x]
+            tail.append(x)
+        cfg.add_rule((head, tail))
+
+    return cfg
