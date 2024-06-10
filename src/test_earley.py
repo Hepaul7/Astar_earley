@@ -3,12 +3,14 @@ from unittest import TestCase
 
 import fast_earley as fast
 import naive_earley as naive
-from node import Terminal, NonTerminal, InputString
+
+from node import Node, Terminal, NonTerminal, InputString
+from cfg import Grammar
 
 
-def toy_grammar() -> naive.Grammar:
+def toy_grammar() -> Grammar:
     # TODO: an efficient way of adding terminal/nonterminal automatically to the cfg
-    g = naive.Grammar()
+    g = Grammar()
     g.add_symbol(
         NonTerminal("A"), False).add_symbol(
         Terminal("a"), True).add_symbol(
@@ -22,8 +24,8 @@ def toy_grammar() -> naive.Grammar:
     return g
 
 
-def grammar_1() -> naive.Grammar:
-    g = naive.Grammar()
+def grammar_1() -> Grammar:
+    g = Grammar()
     g.add_symbol(
         Terminal("book"), True).add_symbol(
         Terminal("that"), True).add_symbol(
@@ -69,7 +71,7 @@ class TestNaiveEarley(TestCase):
         for k, st in enumerate(p.chart):
             st_str = set(p.grammar.fmt_point(s.point) for s in st)
             print(f"{k}\t: {st_str}")
-
+        print(p.chart)
         assert len(p.chart) == 4
         assert (set(p.grammar.fmt_point(s.point) for s in p.chart[0]) ==
                 {'<start> → •AA', 'A → •c', 'A → •Aa', 'A → •bA'})
