@@ -4,9 +4,10 @@ We keep the representation of various objects related to the context-free gramma
 
 from dataclasses import dataclass, field
 from typing import Set, List, Tuple, Union, TypeAlias, Self, Optional
-from node import Node, NonTerminal, Terminal
 
 from bidict import bidict
+
+from node import Node, NonTerminal, Terminal
 
 Symbol: TypeAlias = int
 """A `Symbol` represents a terminal or non-terminal symbol in the grammar.
@@ -124,7 +125,7 @@ class Grammar:
         return [x for x in [self.fmt_rules_for(sym) for sym in range(len(self.rules))] if x]
 
     def fmt_all_symbols(self) -> List[str]:
-        return [f"{sym}{'*' if symid in self.terminals else ''}" for symid, sym in self.symbols.items()]
+        return [f"{sym.symbol()}{'*' if symid in self.terminals else ''}" for symid, sym in self.symbols.items()]
 
     def fmt_point(self, pt: Union[GrammarPoint, StarPoint], sep: Optional[str] = None) -> str:
         sep = sep if sep is not None else ''

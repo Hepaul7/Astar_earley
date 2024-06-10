@@ -1,5 +1,5 @@
 from functools import total_ordering
-from typing import Callable, Iterable, List, Tuple, Union, Self, Optional
+from typing import Iterable, List, Self, Optional
 
 
 @total_ordering
@@ -60,6 +60,7 @@ class InputString:
     """
     def __init__(self, string: str, sep: Optional[str] = None):
         split_string = string.split(sep) if sep is not None else string
+        self.sep = sep if sep is not None else ''
         self.nodes = [Terminal(x) for x in split_string]
 
 
