@@ -10,10 +10,10 @@ def toy_grammar() -> naive.Grammar:
     # TODO: an efficient way of adding terminal/nonterminal automatically to the cfg
     g = naive.Grammar()
     g.add_symbol(
-        NonTerminal("A"), False).add_symbol(
-        Terminal("a"), True).add_symbol(
-        Terminal("b"), True).add_symbol(
-        Terminal("c"), True)
+        NonTerminal("A")).add_symbol(
+        Terminal("a")).add_symbol(
+        Terminal("b")).add_symbol(
+        Terminal("c"))
     g.add_rule(
         (NonTerminal("<start>"), [NonTerminal("A"), NonTerminal("A")])).add_rule(
         (NonTerminal("A"), [NonTerminal("A"), Terminal("a")])).add_rule(
@@ -25,20 +25,20 @@ def toy_grammar() -> naive.Grammar:
 def grammar_1() -> naive.Grammar:
     g = naive.Grammar()
     g.add_symbol(
-        Terminal("book"), True).add_symbol(
-        Terminal("that"), True).add_symbol(
-        Terminal("flight"), True).add_symbol(
-        Terminal("a"), True).add_symbol(
-        Terminal("the"), True).add_symbol(
-        Terminal("meal"), True).add_symbol(
-        Terminal("include"), True).add_symbol(
-        Terminal("prefer"), True).add_symbol(
-        NonTerminal("NP"), False).add_symbol(
-        NonTerminal("VP"), False).add_symbol(
-        NonTerminal("Det"), True).add_symbol(
-        NonTerminal("Nominal"), True).add_symbol(
-        NonTerminal("Noun"), True).add_symbol(
-        NonTerminal("Verb"), True)
+        Terminal("book")).add_symbol(
+        Terminal("that")).add_symbol(
+        Terminal("flight")).add_symbol(
+        Terminal("a")).add_symbol(
+        Terminal("the")).add_symbol(
+        Terminal("meal")).add_symbol(
+        Terminal("include")).add_symbol(
+        Terminal("prefer")).add_symbol(
+        NonTerminal("NP")).add_symbol(
+        NonTerminal("VP")).add_symbol(
+        NonTerminal("Det")).add_symbol(
+        NonTerminal("Nominal")).add_symbol(
+        NonTerminal("Noun")).add_symbol(
+        NonTerminal("Verb"))
 
     g.add_rule(
         (NonTerminal("<start>"), [NonTerminal("NP"), NonTerminal("VP")])).add_rule(

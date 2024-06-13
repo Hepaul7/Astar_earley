@@ -11,10 +11,10 @@ def toy_grammar() -> naive.Grammar:
     # TODO: an efficient way of adding terminal/nonterminal automatically to the cfg
     g = naive.Grammar()
     g.add_symbol(
-        NonTerminal("A"), False).add_symbol(
-        Terminal("a"), True).add_symbol(
-        Terminal("b"), True).add_symbol(
-        Terminal("c"), True)
+        NonTerminal("A")).add_symbol(
+        Terminal("a")).add_symbol(
+        Terminal("b")).add_symbol(
+        Terminal("c"))
     g.add_rule(
         (NonTerminal("<start>"), [NonTerminal("A"), NonTerminal("A")])).add_rule(
         (NonTerminal("A"), [NonTerminal("A"), Terminal("a")])).add_rule(
