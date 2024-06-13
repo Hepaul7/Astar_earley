@@ -64,9 +64,9 @@ class Grammar:
         self.symbols = bidict()
         self.terminals = set()
         self.rules = []
-        self.add_symbol(NonTerminal("<start>"), False).add_symbol(Terminal("\0"), True)
+        self.add_symbol(NonTerminal("<start>")).add_symbol(Terminal("\0"))
 
-    def add_symbol(self, sym: Node, terminal: bool) -> Self:
+    def add_symbol(self, sym: Node) -> Self:
         """Register a terminal or non-terminal symbol to the grammar."""
         # We can remove the terminal parameter now, but I don't want to modify the function signature yet.
         assert len(sym.symbol()) > 0, "symbol cannot be empty!"
@@ -125,7 +125,7 @@ class Grammar:
         return [x for x in [self.fmt_rules_for(sym) for sym in range(len(self.rules))] if x]
 
     def fmt_all_symbols(self) -> List[str]:
-        return [f"{sym.symbol()}{'*' if symid in self.terminals else ''}" for symid, sym in self.symbols.items()]
+        return [f"{sym.symbol()}{'*' if sym_id in self.terminals else ''}" for sym_id, sym in self.symbols.items()]
 
     def fmt_point(self, pt: Union[GrammarPoint, StarPoint], sep: Optional[str] = None) -> str:
         sep = sep if sep is not None else ''
